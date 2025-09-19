@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bライン溶接工程 改善提案</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Corporate Blue -->
+    <!-- Application Structure Plan: このSPAは、トップに固定ナビゲーションを配置した単一ページのダッシュボード形式を採用しています。ユーザーは「概要」「課題」「解決策」「計画」「効果」の各セクションへ瞬時に移動できます。この構成は、スライド形式のプレゼンテーションをWebに適した探索可能なフォーマットに変換するために選択されました。中心的なインタラクションとして、未処理品番の削減計画を示すチャートを導入し、ユーザーが時間経過による進捗を視覚的に追跡できるようにしました。この設計により、情報の全体像と詳細の両方を効率的に伝えることができます。 -->
+    <!-- Visualization & Content Choices: 
+        - 概要: 主要指標（未処理品番数、削減工数）をカード形式で表示し、即時性を重視。目的: 情報提供。手法: HTML/CSS。
+        - 課題: 「算出」と「入力」の問題点をアイコン（Unicode）付きの2カラムレイアウトで対比。目的: 比較・情報提供。手法: HTML/CSS。
+        - 解決策: Before/After形式で改善効果を明示し、3ステップの解決策をプロセス図で視覚化。目的: 整理・情報提供。手法: HTML/CSS。
+        - 計画: Chart.jsを使用し、2,600品番の削減ロードマップをインタラクティブなエリアチャートで表現。目的: 変化の可視化。手法: Chart.js Canvas。インタラクション: ホバー時のツールチップで月ごとの残数表示。
+        - 効果: 定量的効果と定性的効果を2カラムで整理し、メリットを明確化。目的: 情報提供。手法: HTML/CSS。
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+        .nav-link {
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #0d6efd;
+            border-bottom-color: #0d6efd;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        h1, h2, h3 {
+            font-weight: 700;
+        }
+        .kpi-value {
+            color: #0d6efd;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 lg:px-6 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800">Bライン溶接工程 改善提案</h1>
+                <div class="hidden md:flex space-x-6">
+                    <a href="#overview" class="nav-link text-gray-600 font-semibold pb-1">概要</a>
+                    <a href="#problem" class="nav-link text-gray-600 font-semibold pb-1">課題</a>
+                    <a href="#solution" class="nav-link text-gray-600 font-semibold pb-1">解決策</a>
+                    <a href="#plan" class="nav-link text-gray-600 font-semibold pb-1">計画</a>
+                    <a href="#benefit" class="nav-link text-gray-600 font-semibold pb-1">効果</a>
+                </div>
+                 <div class="md:hidden">
+                    <select id="mobile-nav" class="bg-gray-200 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        <option value="#overview">概要</option>
+                        <option value="#problem">課題</option>
+                        <option value="#solution">解決策</option>
+                        <option value="#plan">計画</option>
+                        <option value="#benefit">効果</option>
+                    </select>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 lg:px-6 py-8 md:py-12">
+
+        <section id="overview" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Bライン溶接工程における特型工数入力の標準化と省力化</h2>
+                <p class="mt-3 text-lg text-gray-600 max-w-3xl mx-auto">～工数未設定<span class="text-blue-600 font-bold">2,600品番</span>のゼロ化に向けた挑戦～</p>
+            </div>
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-md border border-gray-200">
+                <p class="text-lg text-gray-700 leading-relaxed">
+                    本レポートでは、2018年のBライン稼働開始以来、6年間にわたり暫定運用のままとなっていた特型工数管理の現状について報告します。2024年1月に、工数未設定の特型が<strong>2,600品番</strong>も存在するという深刻な事実が判明しました。この属人化したアナログ作業から脱却し、「標準化」と「省力化」を実現するための具体的な計画をご提案します。
+                </p>
+                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+                    <div class="bg-blue-50 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold text-gray-800">工数未設定の特型品番</h3>
+                        <p class="text-4xl font-bold kpi-value mt-2">2,600<span class="text-2xl text-gray-700 ml-1">品番</span></p>
+                    </div>
+                    <div class="bg-green-50 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold text-gray-800">削減見込み工数</h3>
+                        <p class="text-4xl font-bold text-green-600 mt-2">1.0<span class="text-2xl text-gray-700 ml-1">時間/日</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="problem" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-900">現在の業務プロセスが抱える2つの大きな課題</h2>
+                <p class="mt-3 text-lg text-gray-600 max-w-3xl mx-auto">現在の非効率な作業は、組長の「経験と勘」に頼る工数算出と、ミスを誘発する「アナログな手入力」という2つの根本的な問題を抱えています。</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="card p-6 md:p-8">
+                    <div class="flex items-center mb-4">
+                        <span class="text-4xl mr-4">🤔</span>
+                        <h3 class="text-2xl font-bold text-gray-800">課題①：工数算出の属人化</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">「個人の経験と勘」に依存</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>組長が図面を都度、一枚一枚目視で確認</li>
+                        <li>明確な判断基準がなく、工数にバラつきと不公平感が発生</li>
+                        <li>技術継承が困難で、ノウハウが個人に滞留</li>
+                    </ul>
+                    <div class="mt-6 bg-red-100 text-red-800 p-3 rounded-lg text-center">
+                        <p class="font-bold">消費工数：約 0.5 時間/日</p>
+                    </div>
+                </div>
+                <div class="card p-6 md:p-8">
+                     <div class="flex items-center mb-4">
+                        <span class="text-4xl mr-4">✍️</span>
+                        <h3 class="text-2xl font-bold text-gray-800">課題②：実績入力の非効率化</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">「アナログな手入力」作業</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>指示票を見ながらシステムへ手動で転記</li>
+                        <li>入力ミスや記録漏れなど、ヒューマンエラーのリスクが高い</li>
+                        <li>データの信頼性が低く、正確な分析が困難</li>
+                    </ul>
+                    <div class="mt-6 bg-red-100 text-red-800 p-3 rounded-lg text-center">
+                        <p class="font-bold">消費工数：約 0.5 時間/日</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="solution" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-900">「個人の頑張り」から「仕組みで解決」へ</h2>
+                 <p class="mt-3 text-lg text-gray-600 max-w-3xl mx-auto">「マスター登録」と「自動転記」を組み合わせることで、属人化したプロセスを抜本的に改革し、持続可能な仕組みを構築します。</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8 items-center mb-12">
+                 <div class="card p-8 text-center">
+                     <h3 class="text-2xl font-bold text-gray-500 mb-4">BEFORE</h3>
+                     <div class="space-y-4">
+                         <p class="text-lg">😥 作業のたびに図面確認</p>
+                         <p class="text-lg">😥 担当者によって工数が違う</p>
+                         <p class="text-lg">😥 毎日1時間の手入力作業</p>
+                     </div>
+                 </div>
+                 <div class="card p-8 text-center border-4 border-blue-500">
+                     <h3 class="text-2xl font-bold text-blue-600 mb-4">AFTER</h3>
+                     <div class="space-y-4">
+                         <p class="text-lg font-semibold">✅ 一度登録すれば入力不要</p>
+                         <p class="text-lg font-semibold">✅ 誰がやっても同じ工数</p>
+                         <p class="text-lg font-semibold">✅ 創出された時間でコア業務へ</p>
+                     </div>
+                 </div>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6 text-center">
+                <div class="flex flex-col items-center">
+                    <div class="bg-blue-600 text-white rounded-full w-20 h-20 flex items-center justify-center text-2xl font-bold mb-4">STEP 1</div>
+                    <h3 class="text-xl font-bold mb-2">ルール化</h3>
+                    <p class="text-gray-600">作業内容に応じた標準工数を定義し、誰でも同じ判断ができるルールを策定します。</p>
+                </div>
+                <div class="flex flex-col items-center mt-4 md:mt-0">
+                    <div class="bg-blue-600 text-white rounded-full w-20 h-20 flex items-center justify-center text-2xl font-bold mb-4">STEP 2</div>
+                    <h3 class="text-xl font-bold mb-2">マスター登録</h3>
+                    <p class="text-gray-600">生産管理システムに「品番ごとの標準工数」をマスターデータとして登録します。</p>
+                </div>
+                 <div class="flex flex-col items-center mt-4 md:mt-0">
+                    <div class="bg-blue-600 text-white rounded-full w-20 h-20 flex items-center justify-center text-2xl font-bold mb-4">STEP 3</div>
+                    <h3 class="text-xl font-bold mb-2">自動化</h3>
+                    <p class="text-gray-600">生産実績に応じて、マスターから工数が自動で実績に転記される仕組みを構築します。</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="plan" class="mb-16 scroll-mt-20">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-900">目標：2026年10月、未処理ゼロ達成！</h2>
+                <p class="mt-3 text-lg text-gray-600 max-w-3xl mx-auto">日々の新規発生分をこなしつつ、月間176品番のペースで未処理分を着実に削減し、2年間でのゼロ達成を目指す計画です。下のグラフで計画の推移を確認できます。</p>
+            </div>
+            <div class="card p-6 md:p-8">
+                 <div class="chart-container">
+                    <canvas id="roadmapChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="benefit" class="scroll-mt-20">
+             <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-900">この改善がもたらす2つの大きな価値</h2>
+                <p class="mt-3 text-lg text-gray-600 max-w-3xl mx-auto">本改善は、直接的な工数削減だけでなく、業務品質の向上という大きな価値をもたらし、持続可能な生産体制の基盤を築きます。</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="card p-6 md:p-8">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">① 定量的効果</h3>
+                    <div class="text-center bg-green-50 p-6 rounded-lg">
+                        <p class="text-xl font-semibold text-gray-800">組長の工数削減</p>
+                        <p class="text-5xl font-bold text-green-600 my-2">240<span class="text-2xl text-gray-700 ml-1">時間/年</span></p>
+                        <p class="text-gray-600">(1.0 時間/日 × 20日/月 × 12ヶ月)</p>
+                    </div>
+                    <p class="mt-6 text-gray-700">創出された時間は、品質改善や現場メンバーの育成など、より付加価値の高いコア業務に再投資することが可能になります。</p>
+                </div>
+                <div class="card p-6 md:p-8">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4">② 定性的効果</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-700">業務の標準化</h4>
+                            <p class="text-gray-700">属人性を完全に排除し、誰が担当しても公平で透明性の高い工数管理を実現します。</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-700">データ信頼性向上</h4>
+                            <p class="text-gray-700">ヒューマンエラーを撲滅し、正確な実績データを蓄積。将来の生産計画や原価計算の精度向上に貢献します。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t mt-16">
+        <div class="container mx-auto px-6 py-4 text-center text-gray-600">
+            <p>&copy; 2025 Bライン溶接工程 改善プロジェクト</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mobileNav = document.getElementById('mobile-nav');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.5
+            };
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        navLinks.forEach(link => {
+                            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+                        });
+                        if (mobileNav) {
+                            mobileNav.value = `#${id}`;
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            if (mobileNav) {
+                mobileNav.addEventListener('change', (e) => {
+                    window.location.href = e.target.value;
+                });
+            }
+
+            const initialItems = 2600;
+            const monthlyReduction = 176;
+            const months = 24;
+            const startDate = new Date(2024, 10, 1);
+
+            const chartData = {
+                labels: [],
+                datasets: [{
+                    label: '未処理品番 残数',
+                    data: [],
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1,
+                    pointBackgroundColor: 'rgba(59, 130, 246, 1)'
+                }]
+            };
+
+            for (let i = 0; i <= months; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setMonth(startDate.getMonth() + i);
+                
+                const year = currentDate.getFullYear().toString().slice(-2);
+                const month = currentDate.getMonth() + 1;
+                chartData.labels.push(`${year}年${month}月`);
+
+                const remainingItems = Math.max(0, initialItems - (monthlyReduction * i));
+                chartData.datasets[0].data.push(remainingItems);
+            }
+
+            const ctx = document.getElementById('roadmapChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '品番数'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '年月'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += Math.round(context.parsed.y) + ' 品番';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
